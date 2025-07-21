@@ -4,13 +4,30 @@ require_once __DIR__ . '/../includes/db.php';
 
 $category_id = isset($_GET['category']) ? (int)$_GET['category'] : 0;
 $categories = $pdo->query("SELECT * FROM categories")->fetchAll();
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$per_page = 12;
+$where = [];
+$params = [];
 if ($category_id) {
-    $stmt = $pdo->prepare("SELECT * FROM products WHERE category = ? ORDER BY created_at DESC");
-    $stmt->execute([$category_id]);
-    $products = $stmt->fetchAll();
-} else {
-    $products = $pdo->query("SELECT * FROM products ORDER BY created_at DESC")->fetchAll();
+    $where[] = 'category = ?';
+    $params[] = $category_id;
 }
+if ($search) {
+    $where[] = '(name LIKE ? OR description LIKE ?)';
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+}
+$where_sql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+$total = $pdo->prepare("SELECT COUNT(*) FROM products $where_sql");
+$total->execute($params);
+$total_products = $total->fetchColumn();
+$offset = ($page-1)*$per_page;
+$sql = "SELECT * FROM products $where_sql ORDER BY created_at DESC LIMIT $per_page OFFSET $offset";
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+$products = $stmt->fetchAll();
+$pages = ceil($total_products/$per_page);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -49,7 +66,7 @@ if ($category_id) {
 </nav>
 <main class="container">
     <h2>Product Catalog</h2>
-    <form method="get" class="mb-3">
+    <form method="get" class="mb-3 d-flex gap-2">
         <label for="category">Category:</label>
         <select name="category" id="category" onchange="this.form.submit()">
             <option value="0">All</option>
@@ -57,6 +74,8 @@ if ($category_id) {
                 <option value="<?= $cat['id'] ?>" <?= $category_id == $cat['id'] ? 'selected' : '' ?>><?= htmlspecialchars($cat['name']) ?></option>
             <?php endforeach; ?>
         </select>
+        <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search products..." class="form-control" style="max-width:200px;">
+        <button type="submit" class="btn btn-primary">Search</button>
     </form>
     <div class="row">
         <?php foreach ($products as $product): ?>
@@ -70,6 +89,15 @@ if ($category_id) {
             </div>
         <?php endforeach; ?>
     </div>
+    <?php if ($pages > 1): ?>
+    <nav><ul class="pagination">
+        <?php for ($i=1; $i<=$pages; $i++): ?>
+            <li class="page-item <?= $i==$page?'active':'' ?>">
+                <a class="page-link" href="?category=<?= $category_id ?>&search=<?= urlencode($search) ?>&page=<?= $i ?>"> <?= $i ?> </a>
+            </li>
+        <?php endfor; ?>
+    </ul></nav>
+    <?php endif; ?>
 </main>
 <footer class="mt-5">
     <div class="container text-center">

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_admin();
+check_csrf();
 
 // Handle add/edit/delete
 if (isset($_POST['add'])) {
@@ -14,8 +15,15 @@ if (isset($_POST['add'])) {
     $is_hot = isset($_POST['is_hot']) ? 1 : 0;
     $img = '';
     if (!empty($_FILES['image']['name'])) {
-        $img = '/assets/' . basename($_FILES['image']['name']);
-        move_uploaded_file($_FILES['image']['tmp_name'], __DIR__ . '/../assets/' . basename($_FILES['image']['name']));
+        $allowed = ['jpg','jpeg','png','gif'];
+        $maxsize = 2*1024*1024;
+        $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
+        $safe_name = preg_replace('/[^a-zA-Z0-9._-]/','_',basename($_FILES['image']['name']));
+        if (!in_array($ext, $allowed) || $_FILES['image']['size'] > $maxsize) {
+            die('Invalid image file.');
+        }
+        $img = '/assets/' . uniqid() . '_' . $safe_name;
+        move_uploaded_file($_FILES['image']['tmp_name'], __DIR__ . '/../' . $img);
     }
     $stmt = $pdo->prepare('INSERT INTO products (name, description, price, image, category, is_featured, is_new, is_hot) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
     $stmt->execute([$name, $desc, $price, $img, $cat, $is_featured, $is_new, $is_hot]);
@@ -31,8 +39,15 @@ if (isset($_POST['edit'])) {
     $is_hot = isset($_POST['is_hot']) ? 1 : 0;
     $img = $_POST['old_image'];
     if (!empty($_FILES['image']['name'])) {
-        $img = '/assets/' . basename($_FILES['image']['name']);
-        move_uploaded_file($_FILES['image']['tmp_name'], __DIR__ . '/../assets/' . basename($_FILES['image']['name']));
+        $allowed = ['jpg','jpeg','png','gif'];
+        $maxsize = 2*1024*1024;
+        $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
+        $safe_name = preg_replace('/[^a-zA-Z0-9._-]/','_',basename($_FILES['image']['name']));
+        if (!in_array($ext, $allowed) || $_FILES['image']['size'] > $maxsize) {
+            die('Invalid image file.');
+        }
+        $img = '/assets/' . uniqid() . '_' . $safe_name;
+        move_uploaded_file($_FILES['image']['tmp_name'], __DIR__ . '/../' . $img);
     }
     $stmt = $pdo->prepare('UPDATE products SET name=?, description=?, price=?, image=?, category=?, is_featured=?, is_new=?, is_hot=? WHERE id=?');
     $stmt->execute([$name, $desc, $price, $img, $cat, $is_featured, $is_new, $is_hot, $id]);
@@ -41,6 +56,29 @@ if (isset($_POST['delete'])) {
     $id = intval($_POST['id']);
     $stmt = $pdo->prepare('DELETE FROM products WHERE id=?');
     $stmt->execute([$id]);
+}
+// Category management
+if (isset($_POST['add_category'])) {
+    $catname = trim($_POST['catname']);
+    if ($catname) {
+        $stmt = $pdo->prepare('INSERT INTO categories (name) VALUES (?)');
+        $stmt->execute([$catname]);
+    }
+}
+if (isset($_POST['edit_category'])) {
+    $catid = intval($_POST['catid']);
+    $catname = trim($_POST['catname']);
+    if ($catid && $catname) {
+        $stmt = $pdo->prepare('UPDATE categories SET name=? WHERE id=?');
+        $stmt->execute([$catname, $catid]);
+    }
+}
+if (isset($_POST['delete_category'])) {
+    $catid = intval($_POST['catid']);
+    if ($catid) {
+        $stmt = $pdo->prepare('DELETE FROM categories WHERE id=?');
+        $stmt->execute([$catid]);
+    }
 }
 $products = $pdo->query('SELECT * FROM products ORDER BY created_at DESC')->fetchAll();
 $categories = $pdo->query('SELECT * FROM categories')->fetchAll();
@@ -59,6 +97,7 @@ $categories = $pdo->query('SELECT * FROM categories')->fetchAll();
 <main class="container mt-4">
     <h3>Add Product</h3>
     <form method="post" enctype="multipart/form-data" class="mb-4 row g-3">
+        <?= csrf_field() ?>
         <div class="col-md-3"><input name="name" class="form-control" placeholder="Name" required></div>
         <div class="col-md-3"><input name="price" class="form-control" placeholder="Price" type="number" step="0.01" required></div>
         <div class="col-md-3"><select name="category" class="form-control" required>
@@ -73,6 +112,30 @@ $categories = $pdo->query('SELECT * FROM categories')->fetchAll();
             <button type="submit" name="add" class="btn btn-success ms-2">Add Product</button>
         </div>
     </form>
+    <h3>Categories</h3>
+    <form method="post" class="mb-3 d-flex align-items-center gap-2">
+        <?= csrf_field() ?>
+        <input name="catname" class="form-control" placeholder="New category" required>
+        <button type="submit" name="add_category" class="btn btn-success">Add</button>
+    </form>
+    <table class="table table-bordered table-sm mb-4">
+        <thead><tr><th>ID</th><th>Name</th><th>Actions</th></tr></thead>
+        <tbody>
+        <?php foreach ($categories as $cat): ?>
+            <tr>
+                <form method="post" class="d-flex align-items-center gap-2">
+                    <?= csrf_field() ?>
+                    <td><?= $cat['id'] ?><input type="hidden" name="catid" value="<?= $cat['id'] ?>"></td>
+                    <td><input name="catname" value="<?= htmlspecialchars($cat['name']) ?>" class="form-control"></td>
+                    <td>
+                        <button type="submit" name="edit_category" class="btn btn-sm btn-primary">Save</button>
+                        <button type="submit" name="delete_category" class="btn btn-sm btn-danger" onclick="return confirm('Delete category?')">Delete</button>
+                    </td>
+                </form>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
     <h3>All Products</h3>
     <table class="table table-bordered table-striped">
         <thead><tr><th>ID</th><th>Name</th><th>Price</th><th>Category</th><th>Image</th><th>Flags</th><th>Actions</th></tr></thead>
@@ -80,6 +143,7 @@ $categories = $pdo->query('SELECT * FROM categories')->fetchAll();
         <?php foreach ($products as $p): ?>
             <tr>
                 <form method="post" enctype="multipart/form-data">
+                <?= csrf_field() ?>
                 <td><?= $p['id'] ?><input type="hidden" name="id" value="<?= $p['id'] ?>"></td>
                 <td><input name="name" value="<?= htmlspecialchars($p['name']) ?>" class="form-control"></td>
                 <td><input name="price" value="<?= $p['price'] ?>" class="form-control" type="number" step="0.01"></td>

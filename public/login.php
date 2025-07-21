@@ -1,6 +1,15 @@
 <?php
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/auth.php';
+check_csrf();
+
+if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY'] > 1800)) {
+    session_unset();
+    session_destroy();
+    header('Location: /public/login.php?timeout=1');
+    exit;
+}
+$_SESSION['LAST_ACTIVITY'] = time();
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -39,8 +48,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <main class="container" style="max-width:400px;margin-top:3rem;">
     <h2>Login</h2>
     <?php if (isset($_GET['registered'])): ?><div class="alert alert-success">Registration successful. Please login.</div><?php endif; ?>
+    <?php if (isset($_GET['timeout'])): ?><div class="alert alert-warning">You were logged out due to inactivity. Please login again.</div><?php endif; ?>
     <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
     <form method="post">
+        <?= csrf_field() ?>
         <div class="mb-3">
             <label>Username</label>
             <input type="text" name="username" class="form-control" required>

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/auth.php';
+check_csrf();
 
 if (is_admin()) {
     header('Location: /admin/dashboard.php');
@@ -39,6 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <h2>Admin Login</h2>
     <?php if ($error): ?><div class="alert alert-danger"><?= htmlspecialchars($error) ?></div><?php endif; ?>
     <form method="post">
+        <?= csrf_field() ?>
         <div class="mb-3">
             <label>Username</label>
             <input type="text" name="username" class="form-control" required>

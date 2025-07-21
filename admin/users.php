@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_admin();
+check_csrf();
 
 // Handle add/delete
 if (isset($_POST['add'])) {
@@ -17,6 +18,23 @@ if (isset($_POST['delete'])) {
     $id = intval($_POST['id']);
     $stmt = $pdo->prepare('DELETE FROM users WHERE id=?');
     $stmt->execute([$id]);
+}
+if (isset($_POST['edit'])) {
+    $id = intval($_POST['id']);
+    $username = trim($_POST['username']);
+    $contact = trim($_POST['contact']);
+    $role = $_POST['role'];
+    $stmt = $pdo->prepare('UPDATE users SET username=?, contact=?, role=? WHERE id=?');
+    $stmt->execute([$username, $contact, $role, $id]);
+}
+if (isset($_POST['resetpw'])) {
+    $id = intval($_POST['id']);
+    $newpw = $_POST['newpw'];
+    if (strlen($newpw) >= 4) {
+        $hash = password_hash($newpw, PASSWORD_BCRYPT);
+        $stmt = $pdo->prepare('UPDATE users SET password_hash=? WHERE id=?');
+        $stmt->execute([$hash, $id]);
+    }
 }
 $users = $pdo->query('SELECT * FROM users ORDER BY created_at DESC')->fetchAll();
 ?>
@@ -34,6 +52,7 @@ $users = $pdo->query('SELECT * FROM users ORDER BY created_at DESC')->fetchAll()
 <main class="container mt-4">
     <h3>Add User</h3>
     <form method="post" class="mb-4 row g-3">
+        <?= csrf_field() ?>
         <div class="col-md-3"><input name="username" class="form-control" placeholder="Username" required></div>
         <div class="col-md-3"><input name="password" class="form-control" placeholder="Password" type="password" required></div>
         <div class="col-md-3"><input name="contact" class="form-control" placeholder="Contact"></div>
@@ -52,8 +71,23 @@ $users = $pdo->query('SELECT * FROM users ORDER BY created_at DESC')->fetchAll()
                 <td><?= htmlspecialchars($u['contact']) ?></td>
                 <td><?= $u['created_at'] ?></td>
                 <td>
+                    <form method="post" class="d-inline-flex gap-1 align-items-center">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="id" value="<?= $u['id'] ?>">
+                        <input name="username" value="<?= htmlspecialchars($u['username']) ?>" class="form-control form-control-sm" style="width:100px;">
+                        <input name="contact" value="<?= htmlspecialchars($u['contact']) ?>" class="form-control form-control-sm" style="width:120px;">
+                        <select name="role" class="form-control form-control-sm" style="width:80px;"><option value="user" <?= $u['role']=='user'?'selected':'' ?>>User</option><option value="admin" <?= $u['role']=='admin'?'selected':'' ?>>Admin</option></select>
+                        <button type="submit" name="edit" class="btn btn-sm btn-primary">Save</button>
+                    </form>
+                    <form method="post" class="d-inline-flex gap-1 align-items-center">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="id" value="<?= $u['id'] ?>">
+                        <input name="newpw" type="password" class="form-control form-control-sm" placeholder="New password" style="width:120px;">
+                        <button type="submit" name="resetpw" class="btn btn-sm btn-warning">Reset PW</button>
+                    </form>
                     <?php if ($u['role'] !== 'admin'): ?>
                     <form method="post" style="display:inline">
+                        <?= csrf_field() ?>
                         <input type="hidden" name="id" value="<?= $u['id'] ?>">
                         <button type="submit" name="delete" class="btn btn-sm btn-danger" onclick="return confirm('Delete user?')">Delete</button>
                     </form>

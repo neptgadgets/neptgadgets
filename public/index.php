@@ -1,4 +1,12 @@
 <?php
+// Session timeout/auto-logout
+if (isset($_SESSION['LAST_ACTIVITY']) && (time() - $_SESSION['LAST_ACTIVITY'] > 1800)) {
+    session_unset();
+    session_destroy();
+    header('Location: /public/login.php?timeout=1');
+    exit;
+}
+$_SESSION['LAST_ACTIVITY'] = time();
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/db.php';
 
@@ -30,6 +38,7 @@ $new_arrivals = $pdo->query("SELECT * FROM products WHERE is_new = 1 OR is_hot =
     <a href="/public/catalog.php" class="btn">Shop Now</a>
     <div>
         <?php if (is_logged_in()): ?>
+            <a href="/public/profile.php" class="btn btn-info">Profile</a>
             <?php if (is_admin()): ?>
                 <a href="/admin/dashboard.php" class="btn btn-warning">Admin</a>
             <?php endif; ?>

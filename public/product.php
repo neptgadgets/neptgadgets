@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/auth.php';
+check_csrf();
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $stmt = $pdo->prepare("SELECT * FROM products WHERE id = ?");
@@ -79,6 +80,7 @@ if (is_logged_in()) {
                 <h5>Send Inquiry</h5>
                 <?php if ($message_sent): ?><div class="alert alert-success">Message sent!</div><?php endif; ?>
                 <form method="post">
+                    <?= csrf_field() ?>
                     <textarea name="message" class="form-control mb-2" placeholder="Type your question..." required></textarea>
                     <button type="submit" class="btn btn-primary">Send</button>
                 </form>
