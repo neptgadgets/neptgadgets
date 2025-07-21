@@ -1,8 +1,23 @@
 <?php
-// NEPT GADGETS Installer
 require_once __DIR__ . '/../config/config.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+$error = $success = '';
+$requirements = [];
+// Check requirements
+if (version_compare(PHP_VERSION, '7.4', '<')) {
+    $requirements[] = 'PHP 7.4 or higher is required.';
+}
+if (!extension_loaded('pdo_mysql')) {
+    $requirements[] = 'PDO MySQL extension is required.';
+}
+if (!is_writable(__DIR__ . '/../assets')) {
+    $requirements[] = 'The /assets directory must be writable.';
+}
+if (!is_writable(__DIR__ . '/../config/config.php')) {
+    $requirements[] = 'The config/config.php file must be writable.';
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && empty($requirements)) {
     $db_host = $_POST['db_host'];
     $db_name = $_POST['db_name'];
     $db_user = $_POST['db_user'];
@@ -10,7 +25,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $admin_user = $_POST['admin_user'];
     $admin_pass = $_POST['admin_pass'];
 
-    // Try DB connection
     try {
         $pdo = new PDO("mysql:host=$db_host", $db_user, $db_pass);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -65,8 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $config_content = "<?php\ndefine('DB_HOST', '" . addslashes($db_host) . "');\ndefine('DB_NAME', '" . addslashes($db_name) . "');\ndefine('DB_USER', '" . addslashes($db_user) . "');\ndefine('DB_PASS', '" . addslashes($db_pass) . "');\n";
         file_put_contents(__DIR__ . '/../config/config.php', $config_content, FILE_APPEND);
 
-        echo '<h2>Installation successful!</h2><a href="/public/index.php">Go to site</a>';
-        exit;
+        $success = 'Installation successful!';
     } catch (PDOException $e) {
         $error = $e->getMessage();
     }
@@ -77,21 +90,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
     <meta charset="UTF-8">
     <title>NEPT GADGETS Installer</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="/assets/style.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f4f8fb; }
+        .installer-card { max-width: 500px; margin: 2rem auto; box-shadow: 0 2px 16px #0001; border-radius: 12px; background: #fff; padding: 2rem; }
+        .status-list li { margin-bottom: 0.5rem; }
+    </style>
 </head>
 <body>
-    <h1>NEPT GADGETS – Installer</h1>
-    <?php if (!empty($error)) echo '<p style="color:red">' . htmlspecialchars($error) . '</p>'; ?>
-    <form method="post">
-        <h3>Database Settings</h3>
-        <label>DB Host: <input name="db_host" value="localhost" required></label><br>
-        <label>DB Name: <input name="db_name" value="nept_gadgets" required></label><br>
-        <label>DB User: <input name="db_user" value="root" required></label><br>
-        <label>DB Pass: <input name="db_pass" type="password"></label><br>
-        <h3>Admin Account</h3>
-        <label>Username: <input name="admin_user" required></label><br>
-        <label>Password: <input name="admin_pass" type="password" required></label><br>
-        <button type="submit">Install</button>
+<div class="installer-card">
+    <h1 class="mb-3 text-center" style="color:#0d6efd">NEPT GADGETS <small class="text-muted" style="font-size:0.5em">Installer</small></h1>
+    <hr>
+    <ul class="status-list">
+        <li><strong>PHP Version:</strong> <?= PHP_VERSION ?> <?= version_compare(PHP_VERSION, '7.4', '>=') ? '✅' : '❌' ?></li>
+        <li><strong>PDO MySQL:</strong> <?= extension_loaded('pdo_mysql') ? 'Enabled ✅' : 'Missing ❌' ?></li>
+        <li><strong>/assets Writable:</strong> <?= is_writable(__DIR__ . '/../assets') ? 'Yes ✅' : 'No ❌' ?></li>
+        <li><strong>config/config.php Writable:</strong> <?= is_writable(__DIR__ . '/../config/config.php') ? 'Yes ✅' : 'No ❌' ?></li>
+    </ul>
+    <?php if ($requirements): ?>
+        <div class="alert alert-danger"><strong>Requirements not met:</strong><ul><?php foreach ($requirements as $r) echo "<li>".htmlspecialchars($r)."</li>"; ?></ul></div>
+    <?php endif; ?>
+    <?php if ($error): ?><div class="alert alert-danger">Error: <?= htmlspecialchars($error) ?></div><?php endif; ?>
+    <?php if ($success): ?>
+        <div class="alert alert-success text-center">
+            <h4><?= $success ?></h4>
+            <p>All database tables and settings have been created.<br>
+            <a href="/public/index.php" class="btn btn-success mt-2">Go to Shop</a></p>
+        </div>
+    <?php else: ?>
+    <form method="post" class="mt-3">
+        <h4>Database Settings</h4>
+        <div class="mb-3">
+            <label class="form-label">DB Host</label>
+            <input name="db_host" value="localhost" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">DB Name</label>
+            <input name="db_name" value="nept_gadgets" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">DB User</label>
+            <input name="db_user" value="root" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">DB Pass</label>
+            <input name="db_pass" type="password" class="form-control">
+        </div>
+        <h4>Admin Account</h4>
+        <div class="mb-3">
+            <label class="form-label">Username</label>
+            <input name="admin_user" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input name="admin_pass" type="password" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-primary w-100">Install</button>
     </form>
+    <?php endif; ?>
+    <hr>
+    <div class="text-center text-muted" style="font-size:0.9em;">&copy; <?= date('Y') ?> NEPT GADGETS – Installer</div>
+</div>
 </body>
 </html>
