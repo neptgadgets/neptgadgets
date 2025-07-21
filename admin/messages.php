@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/auth.php';
+session_timeout();
 require_admin();
 
 $messages = $pdo->query('SELECT m.*, u.username, p.name AS product_name FROM messages m LEFT JOIN users u ON m.user_id = u.id LEFT JOIN products p ON m.product_id = p.id ORDER BY m.created_at DESC')->fetchAll();

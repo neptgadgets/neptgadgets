@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/auth.php';
+session_timeout();
 require_admin();
 ?>
 <!DOCTYPE html>
