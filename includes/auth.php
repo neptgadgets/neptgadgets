@@ -22,3 +22,10 @@ function require_admin() {
         exit;
     }
 }
+
+function current_user_id() {
+    return $_SESSION['user_id'] ?? null;
+}
+function current_username() {
+    return $_SESSION['username'] ?? null;
+}

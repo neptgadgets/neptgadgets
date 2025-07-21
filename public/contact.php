@@ -21,6 +21,21 @@ require_once __DIR__ . '/../config/config.php';
         </div>
     </div>
 </header>
+<nav class="container d-flex justify-content-between align-items-center my-3">
+    <a href="/public/index.php" class="btn">Home</a>
+    <div>
+        <?php if (is_logged_in()): ?>
+            <?php if (is_admin()): ?>
+                <a href="/admin/dashboard.php" class="btn btn-warning">Admin</a>
+            <?php endif; ?>
+            <span class="me-2">Hi, <?= htmlspecialchars($_SESSION['username']) ?></span>
+            <a href="/public/logout.php" class="btn btn-danger">Logout</a>
+        <?php else: ?>
+            <a href="/public/login.php" class="btn">Login</a>
+            <a href="/public/register.php" class="btn">Register</a>
+        <?php endif; ?>
+    </div>
+</nav>
 <main class="container">
     <h2>Contact Us</h2>
     <p><strong>Business Name:</strong> <?= $business_name ?></p>
