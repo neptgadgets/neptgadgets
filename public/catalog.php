@@ -1,0 +1,108 @@
+<?php
+require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/db.php';
+
+$category_id = isset($_GET['category']) ? (int)$_GET['category'] : 0;
+$categories = $pdo->query("SELECT * FROM categories")->fetchAll();
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$per_page = 12;
+$where = [];
+$params = [];
+if ($category_id) {
+    $where[] = 'category = ?';
+    $params[] = $category_id;
+}
+if ($search) {
+    $where[] = '(name LIKE ? OR description LIKE ?)';
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+}
+$where_sql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+$total = $pdo->prepare("SELECT COUNT(*) FROM products $where_sql");
+$total->execute($params);
+$total_products = $total->fetchColumn();
+$offset = ($page-1)*$per_page;
+$sql = "SELECT * FROM products $where_sql ORDER BY created_at DESC LIMIT $per_page OFFSET $offset";
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+$products = $stmt->fetchAll();
+$pages = ceil($total_products/$per_page);
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catalog – NEPT GADGETS</title>
+    <link rel="stylesheet" href="/assets/style.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+<header>
+    <div class="container d-flex justify-content-between align-items-center">
+        <h1>NEPT GADGETS</h1>
+        <div>
+            <a href="https://wa.me/<?= $whatsapp_number ?>" class="icon-btn whatsapp" target="_blank"><i class="fab fa-whatsapp"></i> WhatsApp</a>
+            <a href="https://t.me/<?= $telegram_username ?>" class="icon-btn telegram" target="_blank"><i class="fab fa-telegram"></i> Telegram</a>
+        </div>
+    </div>
+</header>
+<nav class="container d-flex justify-content-between align-items-center my-3">
+    <a href="/public/index.php" class="btn">Home</a>
+    <div>
+        <?php if (is_logged_in()): ?>
+            <?php if (is_admin()): ?>
+                <a href="/admin/dashboard.php" class="btn btn-warning">Admin</a>
+            <?php endif; ?>
+            <span class="me-2">Hi, <?= htmlspecialchars($_SESSION['username']) ?></span>
+            <a href="/public/logout.php" class="btn btn-danger">Logout</a>
+        <?php else: ?>
+            <a href="/public/login.php" class="btn">Login</a>
+            <a href="/public/register.php" class="btn">Register</a>
+        <?php endif; ?>
+    </div>
+</nav>
+<main class="container">
+    <h2>Product Catalog</h2>
+    <form method="get" class="mb-3 d-flex gap-2">
+        <label for="category">Category:</label>
+        <select name="category" id="category" onchange="this.form.submit()">
+            <option value="0">All</option>
+            <?php foreach ($categories as $cat): ?>
+                <option value="<?= $cat['id'] ?>" <?= $category_id == $cat['id'] ? 'selected' : '' ?>><?= htmlspecialchars($cat['name']) ?></option>
+            <?php endforeach; ?>
+        </select>
+        <input type="text" name="search" value="<?= htmlspecialchars($search) ?>" placeholder="Search products..." class="form-control" style="max-width:200px;">
+        <button type="submit" class="btn btn-primary">Search</button>
+    </form>
+    <div class="row">
+        <?php foreach ($products as $product): ?>
+            <div class="col-md-3 col-6 mb-3">
+                <div class="product-card">
+                    <img src="<?= htmlspecialchars($product['image']) ?>" alt="<?= htmlspecialchars($product['name']) ?>" style="width:100%;height:150px;object-fit:cover;">
+                    <h5><?= htmlspecialchars($product['name']) ?></h5>
+                    <p><strong>$<?= number_format($product['price'],2) ?></strong></p>
+                    <a href="/public/product.php?id=<?= $product['id'] ?>" class="btn btn-sm">View</a>
+                </div>
+            </div>
+        <?php endforeach; ?>
+    </div>
+    <?php if ($pages > 1): ?>
+    <nav><ul class="pagination">
+        <?php for ($i=1; $i<=$pages; $i++): ?>
+            <li class="page-item <?= $i==$page?'active':'' ?>">
+                <a class="page-link" href="?category=<?= $category_id ?>&search=<?= urlencode($search) ?>&page=<?= $i ?>"> <?= $i ?> </a>
+            </li>
+        <?php endfor; ?>
+    </ul></nav>
+    <?php endif; ?>
+</main>
+<footer class="mt-5">
+    <div class="container text-center">
+        &copy; <?= date('Y') ?> NEPT GADGETS – Phone and Accessories. All rights reserved.
+    </div>
+</footer>
+</body>
+</html>
